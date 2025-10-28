@@ -23,7 +23,7 @@ const customerSchema = new mongoose.Schema({
   area: {
     type: String,
     required: [true, 'المنطقة مطلوبة'],
-    enum: ['الطويسة', 'الجزائر', 'الجبيلة', 'الجنينة', 'التنومة'],
+    enum: ['الطويسة', 'الجزائر', 'الجبيلة', 'الجنينة', 'التنومة', 'مناطق البصرة الاخرى'],
     trim: true
   },
   status: {

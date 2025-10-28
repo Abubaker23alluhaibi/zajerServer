@@ -61,7 +61,7 @@ const cancelOrderByCustomer = async (req, res) => {
 // Create new order
 const createOrder = async (req, res) => {
   try {
-    const { items, deliveryAddress, subArea, notes, deliveryTime, deliveryFee = 0 } = req.body;
+    const { items, deliveryAddress, subArea, notes, deliveryTime, deliveryFee: requestDeliveryFee = 0 } = req.body;
     const customer = req.customer;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -86,26 +86,39 @@ const createOrder = async (req, res) => {
     }
 
     // البحث عن المنطقة الفرعية والحصول على سعرها
-    // أولاً: البحث في منطقة العميل
-    let subAreaData = await SubArea.findOne({ 
-      name: subArea, 
-      mainArea: customer.area,
-      isActive: true 
-    });
-
-    // إذا لم نجد، ابحث في جميع المناطق
-    if (!subAreaData) {
+    let subAreaData = null;
+    let calculatedDeliveryFee = 0;
+    let subAreaPrice = 0;
+    
+    // إذا كانت المنطقة الرئيسية هي "مناطق البصرة الاخرى"، اقبل الطلب مباشرة
+    if (customer.area === 'مناطق البصرة الاخرى') {
+      // استخدام سعر التوصيل المرسل من العميل
+      calculatedDeliveryFee = parseFloat(requestDeliveryFee) || 0;
+      subAreaPrice = calculatedDeliveryFee;
+    } else {
+      // البحث في منطقة العميل
       subAreaData = await SubArea.findOne({ 
         name: subArea, 
+        mainArea: customer.area,
         isActive: true 
       });
-    }
 
-    if (!subAreaData) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'المنطقة الفرعية غير موجودة أو غير نشطة'
-      });
+      // إذا لم نجد، ابحث في جميع المناطق
+      if (!subAreaData) {
+        subAreaData = await SubArea.findOne({ 
+          name: subArea, 
+          isActive: true 
+        });
+      }
+
+      if (subAreaData) {
+        calculatedDeliveryFee = subAreaData.deliveryPrice;
+        subAreaPrice = subAreaData.deliveryPrice;
+      } else {
+        // إذا لم نجد المنطقة، اقبل الطلب مع سعر افتراضي
+        calculatedDeliveryFee = parseFloat(requestDeliveryFee) || 0;
+        subAreaPrice = calculatedDeliveryFee;
+      }
     }
 
     // Calculate total amount
@@ -113,7 +126,7 @@ const createOrder = async (req, res) => {
     items.forEach(item => {
       totalAmount += item.price * item.quantity;
     });
-    totalAmount += subAreaData.deliveryPrice; // استخدام سعر المنطقة الفرعية
+    totalAmount += calculatedDeliveryFee;
 
     const order = new Order({
       customerId: customer._id,
@@ -121,12 +134,12 @@ const createOrder = async (req, res) => {
       storeName: customer.storeName,
       items,
       totalAmount,
-      deliveryFee: subAreaData.deliveryPrice, // سعر المنطقة الفرعية
+      deliveryFee: calculatedDeliveryFee,
       deliveryAddress,
       deliveryTime,
-      subArea: subAreaData.name,
-      subAreaId: subAreaData._id, // ربط مباشر بالمنطقة الفرعية
-      subAreaPrice: subAreaData.deliveryPrice,
+      subArea: subArea,
+      subAreaId: subAreaData ? subAreaData._id : null, // قد يكون null للمناطق المكتوبة
+      subAreaPrice: subAreaPrice,
       notes,
       area: customer.area
     });

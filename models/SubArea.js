@@ -9,7 +9,7 @@ const subAreaSchema = new mongoose.Schema({
   mainArea: {
     type: String,
     required: [true, 'المنطقة الرئيسية مطلوبة'],
-    enum: ['الطويسة', 'الجزائر', 'الجبيلة', 'الجنينة', 'التنومة']
+    enum: ['الطويسة', 'الجزائر', 'الجبيلة', 'الجنينة', 'التنومة', 'مناطق البصرة الاخرى']
   },
   deliveryPrice: {
     type: Number,
