@@ -3,6 +3,61 @@ const Customer = require('../models/Customer');
 const SubArea = require('../models/SubArea');
 const NotificationService = require('../services/notificationService');
 
+// Cancel order by customer (ownership + allowed statuses)
+const cancelOrderByCustomer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const customer = req.customer;
+
+    const order = await Order.findOne({ _id: id, customerId: customer._id });
+    if (!order) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'الطلب غير موجود'
+      });
+    }
+
+    // Prevent cancelling finalized orders
+    const nonCancellable = ['completed', 'cancelled'];
+    if (nonCancellable.includes(order.status)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'لا يمكن إلغاء هذا الطلب'
+      });
+    }
+
+    const oldStatus = order.status;
+    order.status = 'cancelled';
+
+    order.timeline.push({
+      status: 'cancelled',
+      note: `تم إلغاء الطلب من قبل العميل. الحالة السابقة: ${oldStatus}`,
+      updatedAt: new Date(),
+      updatedBy: 'customer'
+    });
+
+    await order.save();
+
+    try {
+      await NotificationService.notifyOrderStatusUpdate(order._id, 'cancelled');
+    } catch (notificationError) {
+      console.error('Error sending status notification:', notificationError);
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'تم إلغاء الطلب بنجاح',
+      data: { order }
+    });
+  } catch (error) {
+    console.error('Cancel order by customer error:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'خطأ في إلغاء الطلب'
+    });
+  }
+};
+
 // Create new order
 const createOrder = async (req, res) => {
   try {
@@ -358,5 +413,6 @@ module.exports = {
   getOrderById,
   updateOrderStatus,
   getAllOrders,
-  getOrderStats
+  getOrderStats,
+  cancelOrderByCustomer
 };
