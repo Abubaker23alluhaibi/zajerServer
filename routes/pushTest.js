@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const PushNotificationService = require('../services/pushNotificationService');
+const { adminAuthMiddleware } = require('../middleware/auth');
 
 // Route to send test push notification
-router.post('/test', async (req, res) => {
+// Protected by authentication for security
+router.post('/test', adminAuthMiddleware, async (req, res) => {
   const { recipient, customerId, title, message, data } = req.body;
   
   try {

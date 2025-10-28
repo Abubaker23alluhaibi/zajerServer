@@ -112,7 +112,6 @@ class NotificationService {
 
       // Send push notification to customer
       try {
-        const PushNotificationService = require('./pushNotificationService');
         const body = `${statusMessages[newStatus] || 'تحديث حالة الطلب'}\nرقم الطلب: ${order.orderNumber}`;
         
         await PushNotificationService.notifyCustomerById(

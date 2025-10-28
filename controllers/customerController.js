@@ -253,7 +253,7 @@ const updateCustomerArea = async (req, res) => {
       });
     }
 
-    const validAreas = ['الطويسة', 'الجزائر', 'الجبيلة', 'الجنينة', 'التنومة', 'مناطق البصرة الاخرى'];
+    const validAreas = ['الطويسة', 'الجزائر', 'الجنينة', 'التنومة', 'القبيلة', 'مناطق البصرة الاخرى'];
     if (!validAreas.includes(area)) {
       return res.status(400).json({
         status: 'error',
