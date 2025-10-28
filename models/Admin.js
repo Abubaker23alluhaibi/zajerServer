@@ -28,6 +28,10 @@ const adminSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  pushToken: {
+    type: String,
+    default: null
+  },
   lastLogin: {
     type: Date
   },

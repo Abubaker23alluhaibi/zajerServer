@@ -1,6 +1,7 @@
 const Notification = require('../models/Notification');
 const Order = require('../models/Order');
 const Customer = require('../models/Customer');
+const PushNotificationService = require('./pushNotificationService');
 
 class NotificationService {
   // إنشاء إشعار جديد
@@ -46,6 +47,20 @@ class NotificationService {
         orderId: order._id,
         customerId: order.customerId._id
       });
+
+      // Send push notification immediately
+      try {
+        await PushNotificationService.notifyAdminNewOrder({
+          orderId: order._id,
+          orderNumber: order.orderNumber,
+          storeName: order.storeName,
+          totalAmount: order.totalAmount,
+          area: order.area
+        });
+      } catch (pushError) {
+        console.error('Push notification error:', pushError);
+        // Don't throw - continue even if push fails
+      }
 
       return notification;
     } catch (error) {

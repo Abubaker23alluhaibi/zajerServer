@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Customer = require('../models/Customer');
 const Order = require('../models/Order');
+const Admin = require('../models/Admin');
 const { adminAuthMiddleware } = require('../middleware/auth');
 
 // Get dashboard statistics
@@ -166,6 +167,66 @@ const getAllOrders = async (req, res) => {
     });
   }
 };
+
+// Register or update admin push token
+router.post('/push-token', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { pushToken } = req.body;
+    
+    if (!pushToken) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Push token is required'
+      });
+    }
+
+    // Update all admin accounts with the push token (or you can use req.admin.adminId to update specific admin)
+    const admin = await Admin.findOne({ isActive: true });
+    
+    if (!admin) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Admin not found'
+      });
+    }
+
+    admin.pushToken = pushToken;
+    admin.updatedAt = new Date();
+    await admin.save();
+
+    console.log('✅ Admin push token registered:', pushToken);
+
+    res.status(200).json({
+      status: 'success',
+      message: 'تم تسجيل رمز الإشعارات بنجاح'
+    });
+  } catch (error) {
+    console.error('Register push token error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'خطأ في تسجيل رمز الإشعارات'
+    });
+  }
+});
+
+// Get unread notifications count for admin
+router.get('/notifications/unread-count', adminAuthMiddleware, async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    const count = await Notification.countDocuments({ recipient: 'admin', isRead: false });
+    
+    res.status(200).json({
+      status: 'success',
+      data: { unreadCount: count }
+    });
+  } catch (error) {
+    console.error('Get unread count error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'خطأ في جلب عدد الإشعارات غير المقروءة'
+    });
+  }
+});
 
 // Get admin dashboard
 router.get('/dashboard', adminAuthMiddleware, getDashboardStats);
