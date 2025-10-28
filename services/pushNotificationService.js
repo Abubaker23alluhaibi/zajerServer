@@ -18,7 +18,22 @@ class PushNotificationService {
         body: body,
         data: data,
         priority: 'high',
-        channelId: 'default'
+        channelId: 'default',
+        // إعدادات إضافية للأندرويد (مهم جداً للإشعارات في الخلفية)
+        android: {
+          channelId: 'default',
+          priority: 'high',
+          sound: 'default',
+        },
+        // إعدادات iOS
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default',
+              badge: 1,
+            },
+          },
+        },
       }));
 
       const response = await fetch('https://exp.host/--/api/v2/push/send', {
