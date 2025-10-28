@@ -33,6 +33,7 @@ const adminRoutes = require('./routes/admin');
 const notificationRoutes = require('./routes/notifications');
 const subAreaRoutes = require('./routes/subAreas');
 const configRoutes = require('./routes/config');
+const pushTestRoutes = require('./routes/pushTest');
 
 const app = express();
 
@@ -99,6 +100,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/sub-areas', subAreaRoutes);
 app.use('/api/config', configRoutes);
+app.use('/api/push-test', pushTestRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
