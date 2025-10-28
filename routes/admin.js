@@ -139,7 +139,7 @@ const getAllOrders = async (req, res) => {
     // Optimize query with lean() and select specific fields
     const orders = await Order.find(filter)
       .populate('customerId', 'storeName phoneNumber area')
-      .select('orderNumber items totalAmount deliveryFee deliveryAddress deliveryTime subArea subAreaPrice status area customerId createdAt')
+      .select('orderNumber items totalAmount deliveryFee deliveryAddress deliveryTime subArea subAreaPrice status area storeName customerId customerPhone clientPhone notes createdAt')
       .lean() // Convert to plain objects for better performance
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))

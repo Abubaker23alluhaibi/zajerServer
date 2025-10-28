@@ -191,6 +191,8 @@ const createOrder = async (req, res) => {
           subAreaPrice: order.subAreaPrice,
           notes: order.notes,
           area: order.area,
+          customerPhone: order.customerPhone,
+          clientPhone: order.clientPhone,
           createdAt: order.createdAt
         }
       }
@@ -358,18 +360,47 @@ const getAllOrders = async (req, res) => {
     // Optimize query with lean() and select specific fields
     const orders = await Order.find(filter)
       .populate('customerId', 'storeName phoneNumber area')
-      .select('orderNumber items totalAmount deliveryFee deliveryAddress deliveryTime subArea subAreaPrice status area customerId customerPhone clientPhone createdAt')
       .lean() // Convert to plain objects for better performance
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit));
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .exec();
+
+    // Select and format only needed fields
+    const formattedOrders = orders.map(order => ({
+      _id: order._id,
+      orderNumber: order.orderNumber,
+      items: order.items,
+      totalAmount: order.totalAmount,
+      deliveryFee: order.deliveryFee,
+      deliveryAddress: order.deliveryAddress,
+      deliveryTime: order.deliveryTime,
+      subArea: order.subArea,
+      subAreaPrice: order.subAreaPrice,
+      status: order.status,
+      area: order.area,
+      storeName: order.storeName,
+      customerId: order.customerId,
+      customerPhone: order.customerPhone,
+      clientPhone: order.clientPhone,
+      notes: order.notes,
+      createdAt: order.createdAt
+    }));
+
+    // Debug log to check if clientPhone is being retrieved
+    console.log('🔍 First order from DB:', formattedOrders[0] ? JSON.stringify({
+      _id: formattedOrders[0]._id,
+      customerPhone: formattedOrders[0].customerPhone,
+      clientPhone: formattedOrders[0].clientPhone,
+      storeName: formattedOrders[0].storeName
+    }, null, 2) : 'No orders');
 
     const total = await Order.countDocuments(filter);
 
     res.status(200).json({
       status: 'success',
       data: {
-        orders,
+        orders: formattedOrders,
         pagination: {
           currentPage: parseInt(page),
           totalPages: Math.ceil(total / limit),
