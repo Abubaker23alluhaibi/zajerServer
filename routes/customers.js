@@ -8,9 +8,13 @@ const {
   deleteCustomer,
   getCustomerStats,
   changePassword,
-  updateCustomerArea
+  updateCustomerArea,
+  savePushToken
 } = require('../controllers/customerController');
 const { adminAuthMiddleware, authMiddleware } = require('../middleware/auth');
+
+// Save customer push token
+router.post('/push-token', authMiddleware, savePushToken);
 
 // Update customer area (Customer can update their own area)
 router.put('/my-area', authMiddleware, updateCustomerArea);

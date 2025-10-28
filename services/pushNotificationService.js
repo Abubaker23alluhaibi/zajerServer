@@ -138,6 +138,33 @@ class PushNotificationService {
       return null;
     }
   }
+
+  /**
+   * Send push notification to customer by customer ID
+   */
+  static async notifyCustomerById(customerId, title, body, data = {}) {
+    try {
+      const Customer = require('../models/Customer');
+      const customer = await Customer.findById(customerId);
+      
+      if (!customer || !customer.expoPushToken) {
+        console.log('⚠️ Customer not found or no push token');
+        return;
+      }
+
+      console.log('📤 Sending push notification to customer...');
+      const result = await this.sendPushNotification([customer.expoPushToken], title, body, data);
+      
+      if (result) {
+        console.log('✅ Customer notification sent successfully');
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Error in notifyCustomerById:', error);
+      return null;
+    }
+  }
 }
 
 module.exports = PushNotificationService;

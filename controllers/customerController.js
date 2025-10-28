@@ -358,6 +358,37 @@ const getCustomerStats = async (req, res) => {
   }
 };
 
+// Save customer push token
+const savePushToken = async (req, res) => {
+  try {
+    const { expoPushToken } = req.body;
+    const customer = req.customer;
+    
+    if (!expoPushToken) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Expo push token is required'
+      });
+    }
+
+    customer.expoPushToken = expoPushToken;
+    await customer.save();
+
+    console.log('✅ Customer push token saved:', expoPushToken);
+
+    res.status(200).json({
+      status: 'success',
+      message: 'تم حفظ رمز الإشعارات بنجاح'
+    });
+  } catch (error) {
+    console.error('Save push token error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'خطأ في حفظ رمز الإشعارات'
+    });
+  }
+};
+
 module.exports = {
   getAllCustomers,
   getCustomerById,
@@ -366,5 +397,6 @@ module.exports = {
   deleteCustomer,
   getCustomerStats,
   changePassword,
-  updateCustomerArea
+  updateCustomerArea,
+  savePushToken
 };

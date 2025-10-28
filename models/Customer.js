@@ -60,6 +60,11 @@ const customerSchema = new mongoose.Schema({
     type: Number,
     default: 1,
     min: [1, 'عدد الماطورات يجب أن يكون على الأقل 1']
+  },
+  expoPushToken: {
+    type: String,
+    default: null,
+    trim: true
   }
 }, {
   timestamps: true

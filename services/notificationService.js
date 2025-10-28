@@ -110,6 +110,27 @@ class NotificationService {
         customerId: order.customerId._id
       });
 
+      // Send push notification to customer
+      try {
+        const PushNotificationService = require('./pushNotificationService');
+        const body = `${statusMessages[newStatus] || 'تحديث حالة الطلب'}\nرقم الطلب: ${order.orderNumber}`;
+        
+        await PushNotificationService.notifyCustomerById(
+          order.customerId._id,
+          '🔔 تحديث الطلب',
+          body,
+          {
+            type: 'order_status_update',
+            orderId: order._id,
+            orderNumber: order.orderNumber,
+            status: newStatus
+          }
+        );
+      } catch (pushError) {
+        console.error('Push notification error:', pushError);
+        // Don't throw - continue even if push fails
+      }
+
       return notification;
     } catch (error) {
       console.error('Error notifying order status update:', error);
