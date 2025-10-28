@@ -10,6 +10,11 @@ const orderSchema = new mongoose.Schema({
     type: String,
     required: [true, 'رقم هاتف العميل مطلوب']
   },
+  clientPhone: {
+    type: String,
+    required: [true, 'رقم الزبون مطلوب'],
+    trim: true
+  },
   storeName: {
     type: String,
     required: [true, 'اسم المتجر مطلوب']

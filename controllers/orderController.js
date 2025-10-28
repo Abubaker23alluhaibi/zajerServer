@@ -61,7 +61,7 @@ const cancelOrderByCustomer = async (req, res) => {
 // Create new order
 const createOrder = async (req, res) => {
   try {
-    const { items, deliveryAddress, subArea, notes, deliveryTime, deliveryFee: requestDeliveryFee = 0 } = req.body;
+    const { items, deliveryAddress, subArea, notes, deliveryTime, deliveryFee: requestDeliveryFee = 0, clientPhone } = req.body;
     const customer = req.customer;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -131,6 +131,7 @@ const createOrder = async (req, res) => {
     const order = new Order({
       customerId: customer._id,
       customerPhone: customer.phoneNumber,
+      clientPhone: clientPhone || null,
       storeName: customer.storeName,
       items,
       totalAmount,
