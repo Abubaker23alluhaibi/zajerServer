@@ -63,6 +63,9 @@ const createOrder = async (req, res) => {
   try {
     const { items, deliveryAddress, subArea, notes, deliveryTime, deliveryFee: requestDeliveryFee = 0, clientPhone } = req.body;
     const customer = req.customer;
+    
+    // استخدام منطقة العميل المحفوظة في قاعدة البيانات
+    const orderArea = customer.area;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
@@ -105,7 +108,7 @@ const createOrder = async (req, res) => {
     let subAreaPrice = 0;
     
     // إذا كانت المنطقة الرئيسية هي "مناطق البصرة الاخرى"، اقبل الطلب مباشرة
-    if (customer.area === 'مناطق البصرة الاخرى') {
+    if (orderArea === 'مناطق البصرة الاخرى') {
       // استخدام سعر التوصيل المرسل من العميل
       calculatedDeliveryFee = parseFloat(requestDeliveryFee) || 0;
       subAreaPrice = calculatedDeliveryFee;
@@ -113,7 +116,7 @@ const createOrder = async (req, res) => {
       // البحث في منطقة العميل
       subAreaData = await SubArea.findOne({ 
         name: subArea, 
-        mainArea: customer.area,
+        mainArea: orderArea,
         isActive: true 
       });
 
@@ -156,7 +159,7 @@ const createOrder = async (req, res) => {
       subAreaId: subAreaData ? subAreaData._id : null, // قد يكون null للمناطق المكتوبة
       subAreaPrice: subAreaPrice,
       notes,
-      area: customer.area
+      area: orderArea
     });
 
     await order.save();
