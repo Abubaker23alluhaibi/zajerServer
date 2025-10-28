@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const Admin = require('../models/Admin');
+const Config = require('../models/Config');
 
 const CONFIG_FILE = path.join(__dirname, '../config.env');
 
@@ -164,9 +165,85 @@ const updateAdminConfig = async (req, res) => {
   }
 };
 
+// Get available delivery count
+const getAvailableDeliveryCount = async (req, res) => {
+  try {
+    let config = await Config.findOne({ name: 'availableDeliveryDrivers' });
+    
+    if (!config) {
+      // Create default config if it doesn't exist
+      config = new Config({
+        name: 'availableDeliveryDrivers',
+        value: 10,
+        description: 'عدد الدلفري المتوفر'
+      });
+      await config.save();
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        count: config.value
+      }
+    });
+  } catch (error) {
+    console.error('Get available delivery count error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'خطأ في جلب عدد الدلفري المتوفر'
+    });
+  }
+};
+
+// Update available delivery count
+const updateAvailableDeliveryCount = async (req, res) => {
+  try {
+    const { count } = req.body;
+
+    if (count === undefined || count < 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'العدد يجب أن يكون موجباً'
+      });
+    }
+
+    let config = await Config.findOne({ name: 'availableDeliveryDrivers' });
+    
+    if (!config) {
+      config = new Config({
+        name: 'availableDeliveryDrivers',
+        value: count,
+        description: 'عدد الدلفري المتوفر'
+      });
+    } else {
+      config.value = count;
+    }
+
+    await config.save();
+
+    console.log('✅ Available delivery count updated:', count);
+
+    res.status(200).json({
+      status: 'success',
+      message: 'تم تحديث عدد الدلفري المتوفر بنجاح',
+      data: {
+        count: config.value
+      }
+    });
+  } catch (error) {
+    console.error('Update available delivery count error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'خطأ في تحديث عدد الدلفري المتوفر'
+    });
+  }
+};
+
 module.exports = {
   getAdminConfig,
   updateAdminConfig,
-  createAdmin
+  createAdmin,
+  getAvailableDeliveryCount,
+  updateAvailableDeliveryCount
 };
 
