@@ -85,6 +85,20 @@ const createOrder = async (req, res) => {
       });
     }
 
+    if (!clientPhone || !clientPhone.trim()) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'رقم الزبون مطلوب'
+      });
+    }
+
+    if (!clientPhone.startsWith('07') || clientPhone.length !== 11) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'رقم الزبون يجب أن يبدأ بـ 07 ويتكون من 11 رقم'
+      });
+    }
+
     // البحث عن المنطقة الفرعية والحصول على سعرها
     let subAreaData = null;
     let calculatedDeliveryFee = 0;
@@ -131,7 +145,7 @@ const createOrder = async (req, res) => {
     const order = new Order({
       customerId: customer._id,
       customerPhone: customer.phoneNumber,
-      clientPhone: clientPhone || null,
+      clientPhone: clientPhone.trim(),
       storeName: customer.storeName,
       items,
       totalAmount,
