@@ -78,19 +78,19 @@ const createOrder = async (req, res) => {
 
     await order.save();
 
-    // Update customer total orders
-    await Customer.findByIdAndUpdate(customer._id, {
+    // Update customer total orders and send notification in parallel for better performance
+    const updatePromise = Customer.findByIdAndUpdate(customer._id, {
       $inc: { totalOrders: 1 },
       lastOrderDate: new Date()
     });
 
-    // إرسال إشعار للإدارة
-    try {
-      await NotificationService.notifyNewOrder(order._id);
-    } catch (notificationError) {
-      console.error('Error sending notification:', notificationError);
+    const notificationPromise = NotificationService.notifyNewOrder(order._id).catch(error => {
+      console.error('Error sending notification:', error);
       // لا نوقف العملية إذا فشل الإشعار
-    }
+    });
+
+    // Execute both operations concurrently
+    await Promise.all([updatePromise, notificationPromise]);
 
     res.status(201).json({
       status: 'success',
@@ -125,15 +125,18 @@ const createOrder = async (req, res) => {
 const getCustomerOrders = async (req, res) => {
   try {
     const customer = req.customer;
-    const { page = 1, limit = 10, status } = req.query;
+    const { page = 1, limit = 20, status } = req.query; // Increased default limit
 
     const filter = { customerId: customer._id };
     if (status) filter.status = status;
 
+    // Optimize query with lean() and select specific fields
     const orders = await Order.find(filter)
+      .select('orderNumber items totalAmount deliveryFee deliveryAddress deliveryTime subArea status createdAt')
+      .lean() // Convert to plain objects for better performance
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
 
     const total = await Order.countDocuments(filter);
 
@@ -262,18 +265,21 @@ const updateOrderStatus = async (req, res) => {
 // Get all orders (Admin)
 const getAllOrders = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, area, customerId } = req.query;
+    const { page = 1, limit = 20, status, area, customerId } = req.query; // Increased default limit
 
     const filter = {};
     if (status) filter.status = status;
     if (area) filter.area = area;
     if (customerId) filter.customerId = customerId;
 
+    // Optimize query with lean() and select specific fields
     const orders = await Order.find(filter)
       .populate('customerId', 'storeName phoneNumber area')
+      .select('orderNumber items totalAmount deliveryFee deliveryAddress deliveryTime subArea subAreaPrice status area customerId createdAt')
+      .lean() // Convert to plain objects for better performance
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
 
     const total = await Order.countDocuments(filter);
 

@@ -13,9 +13,11 @@ const getDashboardStats = async (req, res) => {
     const pendingOrders = await Order.countDocuments({ status: 'pending' });
     const deliveredOrders = await Order.countDocuments({ status: 'delivered' });
 
-    // Get recent orders
+    // Get recent orders - optimized with lean()
     const recentOrders = await Order.find()
       .populate('customerId', 'storeName phoneNumber area')
+      .select('orderNumber items totalAmount status customerId createdAt')
+      .lean()
       .sort({ createdAt: -1 })
       .limit(5);
 
@@ -127,18 +129,21 @@ const getSystemOverview = async (req, res) => {
 // Get all orders for admin
 const getAllOrders = async (req, res) => {
   try {
-    const { status, page = 1, limit = 100 } = req.query;
+    const { status, page = 1, limit = 20 } = req.query; // Reduced from 100 to 20
     
     const filter = {};
     if (status) {
       filter.status = status;
     }
     
+    // Optimize query with lean() and select specific fields
     const orders = await Order.find(filter)
       .populate('customerId', 'storeName phoneNumber area')
+      .select('orderNumber items totalAmount deliveryFee deliveryAddress deliveryTime subArea subAreaPrice status area customerId createdAt')
+      .lean() // Convert to plain objects for better performance
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
     
     const total = await Order.countDocuments(filter);
     
