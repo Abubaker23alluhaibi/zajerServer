@@ -3,7 +3,7 @@ const Customer = require('../models/Customer');
 const SubArea = require('../models/SubArea');
 const NotificationService = require('../services/notificationService');
 
-// Cancel order by customer (ownership + allowed statuses)
+// Cancel order by customer (ownership + allowed statuses) - حذف نهائي
 const cancelOrderByCustomer = async (req, res) => {
   try {
     const { id } = req.params;
@@ -26,34 +26,25 @@ const cancelOrderByCustomer = async (req, res) => {
       });
     }
 
-    const oldStatus = order.status;
-    order.status = 'cancelled';
+    // حذف الطلب نهائياً من قاعدة البيانات
+    await Order.findByIdAndDelete(id);
 
-    order.timeline.push({
-      status: 'cancelled',
-      note: `تم إلغاء الطلب من قبل العميل. الحالة السابقة: ${oldStatus}`,
-      updatedAt: new Date(),
-      updatedBy: 'customer'
+    // تحديث إحصائيات العميل
+    await Customer.findByIdAndUpdate(customer._id, {
+      $inc: { totalOrders: -1 }
     });
 
-    await order.save();
-
-    try {
-      await NotificationService.notifyOrderStatusUpdate(order._id, 'cancelled');
-    } catch (notificationError) {
-      console.error('Error sending status notification:', notificationError);
-    }
+    console.log(`Order ${id} permanently deleted by customer ${customer._id}`);
 
     return res.status(200).json({
       status: 'success',
-      message: 'تم إلغاء الطلب بنجاح',
-      data: { order }
+      message: 'تم حذف الطلب نهائياً من قاعدة البيانات'
     });
   } catch (error) {
-    console.error('Cancel order by customer error:', error);
+    console.error('Cancel (delete) order by customer error:', error);
     return res.status(500).json({
       status: 'error',
-      message: 'خطأ في إلغاء الطلب'
+      message: 'خطأ في حذف الطلب'
     });
   }
 };
@@ -281,7 +272,7 @@ const getOrderById = async (req, res) => {
   }
 };
 
-// Update order status (Admin only)
+// Update order status (Admin only) - يمكن الحذف عند الإلغاء
 const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -308,6 +299,27 @@ const updateOrderStatus = async (req, res) => {
       return res.status(404).json({
         status: 'error',
         message: 'الطلب غير موجود'
+      });
+    }
+
+    // إذا كانت الحالة cancelled، احذف الطلب نهائياً
+    if (status === 'cancelled') {
+      // حذف الطلب نهائياً
+      await Order.findByIdAndDelete(id);
+      
+      // تحديث إحصائيات العميل
+      if (order.customerId) {
+        await Customer.findByIdAndUpdate(order.customerId, {
+          $inc: { totalOrders: -1 }
+        });
+      }
+
+      console.log(`Order ${id} permanently deleted by admin`);
+
+      return res.status(200).json({
+        status: 'success',
+        message: 'تم حذف الطلب نهائياً من قاعدة البيانات',
+        data: { deletedOrderId: id }
       });
     }
 
