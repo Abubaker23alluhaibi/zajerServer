@@ -150,10 +150,10 @@ orderSchema.pre('save', function(next) {
 });
 
 // Indexes for better performance
+// Note: orderNumber already has unique index
 orderSchema.index({ customerId: 1, createdAt: -1 });
 orderSchema.index({ status: 1, createdAt: -1 });
 orderSchema.index({ area: 1, status: 1 });
-orderSchema.index({ orderNumber: 1 });
 orderSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('Order', orderSchema);

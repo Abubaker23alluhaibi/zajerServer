@@ -97,7 +97,7 @@ customerSchema.pre('save', function(next) {
 });
 
 // Indexes for better performance
-customerSchema.index({ phoneNumber: 1 });
+// Note: phoneNumber already has unique index
 customerSchema.index({ area: 1, status: 1 });
 customerSchema.index({ status: 1 });
 customerSchema.index({ createdAt: -1 });
