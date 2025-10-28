@@ -6,7 +6,8 @@ const {
   createCustomer, 
   updateCustomer, 
   deleteCustomer,
-  getCustomerStats 
+  getCustomerStats,
+  changePassword
 } = require('../controllers/customerController');
 const { adminAuthMiddleware } = require('../middleware/auth');
 
@@ -24,6 +25,9 @@ router.post('/', adminAuthMiddleware, createCustomer);
 
 // Update customer (Admin only)
 router.put('/:id', adminAuthMiddleware, updateCustomer);
+
+// Change customer password (Admin only)
+router.put('/:id/password', adminAuthMiddleware, changePassword);
 
 // Delete customer (Admin only)
 router.delete('/:id', adminAuthMiddleware, deleteCustomer);

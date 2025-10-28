@@ -151,7 +151,7 @@ const createCustomer = async (req, res) => {
 const updateCustomer = async (req, res) => {
   try {
     const { id } = req.params;
-    const { storeName, phoneNumber, area, status } = req.body;
+    const { storeName, phoneNumber, area, status, password } = req.body;
 
     const customer = await Customer.findById(id);
     
@@ -166,6 +166,12 @@ const updateCustomer = async (req, res) => {
     if (phoneNumber) customer.phoneNumber = phoneNumber;
     if (area) customer.area = area;
     if (status) customer.status = status;
+    
+    // إذا تم إرسال كلمة مرور جديدة، قم بتحديثها
+    if (password) {
+      customer.password = password;
+      // هذا سيطلق الـ pre-save hook لتشفير كلمة المرور
+    }
 
     await customer.save();
 
@@ -188,6 +194,48 @@ const updateCustomer = async (req, res) => {
     res.status(500).json({
       status: 'error',
       message: 'خطأ في تحديث العميل'
+    });
+  }
+};
+
+// Change customer password
+const changePassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+
+    if (!password || password.length < 4) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'كلمة المرور يجب أن تكون على الأقل 4 أحرف'
+      });
+    }
+
+    const customer = await Customer.findById(id);
+    
+    if (!customer) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'العميل غير موجود'
+      });
+    }
+
+    // تحديث كلمة المرور (ستتم تشفيرها تلقائياً)
+    customer.password = password;
+    await customer.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'تم تغيير كلمة المرور بنجاح',
+      data: {
+        customerId: customer._id
+      }
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'خطأ في تغيير كلمة المرور'
     });
   }
 };
@@ -269,5 +317,6 @@ module.exports = {
   createCustomer,
   updateCustomer,
   deleteCustomer,
-  getCustomerStats
+  getCustomerStats,
+  changePassword
 };
