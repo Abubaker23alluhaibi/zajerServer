@@ -240,6 +240,53 @@ const changePassword = async (req, res) => {
   }
 };
 
+// Update customer area (for customers to update their own area)
+const updateCustomerArea = async (req, res) => {
+  try {
+    const customer = req.customer;
+    const { area } = req.body;
+
+    if (!area) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'المنطقة مطلوبة'
+      });
+    }
+
+    const validAreas = ['الطويسة', 'الجزائر', 'الجبيلة', 'الجنينة', 'التنومة', 'مناطق البصرة الاخرى'];
+    if (!validAreas.includes(area)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'المنطقة غير صحيحة'
+      });
+    }
+
+    customer.area = area;
+    await customer.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'تم تحديث المنطقة بنجاح',
+      data: {
+        customer: {
+          id: customer._id,
+          storeName: customer.storeName,
+          phoneNumber: customer.phoneNumber,
+          area: customer.area,
+          status: customer.status,
+          updatedAt: customer.updatedAt
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Update customer area error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'خطأ في تحديث المنطقة'
+    });
+  }
+};
+
 // Delete customer
 const deleteCustomer = async (req, res) => {
   try {
@@ -318,5 +365,6 @@ module.exports = {
   updateCustomer,
   deleteCustomer,
   getCustomerStats,
-  changePassword
+  changePassword,
+  updateCustomerArea
 };

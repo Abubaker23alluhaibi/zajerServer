@@ -7,9 +7,13 @@ const {
   updateCustomer, 
   deleteCustomer,
   getCustomerStats,
-  changePassword
+  changePassword,
+  updateCustomerArea
 } = require('../controllers/customerController');
-const { adminAuthMiddleware } = require('../middleware/auth');
+const { adminAuthMiddleware, authMiddleware } = require('../middleware/auth');
+
+// Update customer area (Customer can update their own area)
+router.put('/my-area', authMiddleware, updateCustomerArea);
 
 // Get all customers (Admin only)
 router.get('/', adminAuthMiddleware, getAllCustomers);

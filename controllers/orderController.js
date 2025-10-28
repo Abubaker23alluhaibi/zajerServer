@@ -61,11 +61,11 @@ const cancelOrderByCustomer = async (req, res) => {
 // Create new order
 const createOrder = async (req, res) => {
   try {
-    const { items, deliveryAddress, subArea, notes, deliveryTime, deliveryFee: requestDeliveryFee = 0, clientPhone } = req.body;
+    const { items, deliveryAddress, subArea, notes, deliveryTime, deliveryFee: requestDeliveryFee = 0, clientPhone, area } = req.body;
     const customer = req.customer;
     
-    // استخدام منطقة العميل المحفوظة في قاعدة البيانات
-    const orderArea = customer.area;
+    // استخدام المنطقة من الطلب إذا كانت موجودة، وإلا استخدام منطقة العميل المحفوظة في قاعدة البيانات
+    const orderArea = area || customer.area;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
