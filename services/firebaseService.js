@@ -83,18 +83,30 @@ class FirebaseMessagingService {
         },
         data: stringData,
         android: {
-          priority: 'high',
+          priority: 'high', // مهم جداً للإشعارات خارج التطبيق
           notification: {
-            channelId: 'default',
+            channelId: 'default', // يجب أن يطابق القناة في التطبيق
             sound: 'default',
-            priority: 'high',
+            priority: 'high', // HIGH أو MAX للإشعارات المهمة
+            defaultSound: true,
+            defaultVibrateTimings: true,
+            visibility: 'public', // إظهار الإشعار حتى مع شاشة القفل
+            icon: 'ic_notification', // سيتم استخدامه إذا كان موجود
+            color: '#2196F3', // لون الإشعار
           },
+          ttl: 86400000, // 24 ساعة (time to live للإشعار)
         },
         apns: {
           payload: {
             aps: {
               sound: 'default',
               badge: 1,
+              alert: {
+                title: title,
+                body: body,
+              },
+              'content-available': 1, // للإشعارات في الخلفية
+              category: 'ORDER_NOTIFICATION', // فئة الإشعار
             },
           },
         },
@@ -255,14 +267,21 @@ class FirebaseMessagingService {
         },
         data: stringData,
         android: {
-          priority: 'high',
+          priority: 'high', // مهم جداً للإشعارات خارج التطبيق
+          // إضافة clickAction لضمان إظهار الإشعار في الخلفية
           notification: {
-            channelId: 'default',
+            channelId: 'default', // يجب أن يطابق القناة في التطبيق
             sound: 'default',
-            priority: 'high',
+            priority: 'high', // HIGH أو MAX للإشعارات المهمة
             defaultSound: true,
             defaultVibrateTimings: true,
+            visibility: 'public', // إظهار الإشعار حتى مع شاشة القفل
+            // إضافة icon و color للإشعار
+            icon: 'ic_notification', // سيتم استخدامه إذا كان موجود
+            color: '#2196F3', // لون الإشعار
           },
+          // إعدادات إضافية لضمان وصول الإشعار
+          ttl: 86400000, // 24 ساعة (time to live للإشعار)
         },
         apns: {
           payload: {
@@ -274,8 +293,13 @@ class FirebaseMessagingService {
                 body: body,
               },
               'content-available': 1, // للإشعارات في الخلفية
+              category: 'ORDER_NOTIFICATION', // فئة الإشعار
             },
           },
+        },
+        // إعدادات إضافية لضمان الإظهار
+        fcmOptions: {
+          // رابط الصورة إذا كان هناك صورة للإشعار
         },
       };
 
