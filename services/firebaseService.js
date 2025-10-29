@@ -119,6 +119,7 @@ class FirebaseMessagingService {
 
   /**
    * Validate FCM token format
+   * Handles various FCM token formats including those with colons
    */
   static isValidFCMToken(token) {
     if (!token || typeof token !== 'string') {
@@ -126,11 +127,23 @@ class FirebaseMessagingService {
     }
     
     // Trim whitespace
-    const trimmedToken = token.trim();
+    let trimmedToken = token.trim();
     
     // Check if it's not an Expo token (Expo tokens start with ExponentPushToken)
     if (trimmedToken.startsWith('ExponentPushToken')) {
       return false;
+    }
+    
+    // Handle tokens that might have a prefix before the actual FCM token
+    // Format: "prefix:actualToken" or just "actualToken"
+    // Extract the actual token part if there's a colon
+    if (trimmedToken.includes(':')) {
+      const parts = trimmedToken.split(':');
+      // Take the longest part (likely the actual token)
+      // FCM tokens are typically much longer than prefixes
+      trimmedToken = parts.reduce((longest, part) => 
+        part.length > longest.length ? part : longest, ''
+      );
     }
     
     // FCM/APNs tokens can vary in length:
@@ -146,9 +159,9 @@ class FirebaseMessagingService {
       return false;
     }
     
-    // Check if it looks like a valid token (alphanumeric and some special chars like - _)
-    // Both hex (APNs) and base64 (FCM) tokens use alphanumeric characters
-    const tokenPattern = /^[a-zA-Z0-9_-]+$/;
+    // Check if it looks like a valid token (alphanumeric and some special chars like - _ :)
+    // Allow colons for compatibility with various token formats
+    const tokenPattern = /^[a-zA-Z0-9_:.-]+$/;
     if (!tokenPattern.test(trimmedToken)) {
       return false;
     }
@@ -171,12 +184,24 @@ class FirebaseMessagingService {
     const validTokens = [];
     const invalidTokens = [];
     
-    tokens.forEach((token, idx) => {
-      if (this.isValidFCMToken(token)) {
-        validTokens.push(token);
+      tokens.forEach((token, idx) => {
+      // Normalize token - extract actual token if it has a colon
+      let normalizedToken = typeof token === 'string' ? token.trim() : String(token).trim();
+      
+      // Handle tokens with colons (format: "prefix:actualToken")
+      if (normalizedToken.includes(':')) {
+        const parts = normalizedToken.split(':');
+        // Take the longest part (likely the actual FCM token)
+        normalizedToken = parts.reduce((longest, part) => 
+          part.length > longest.length ? part : longest, ''
+        );
+      }
+      
+      if (this.isValidFCMToken(normalizedToken)) {
+        validTokens.push(normalizedToken); // Use normalized token
       } else {
-        invalidTokens.push({ index: idx, token: token.substring(0, 30) + '...' });
-        console.log(`⚠️ Invalid FCM token ${idx}: ${token.substring(0, 50)}... (length: ${token.length})`);
+        invalidTokens.push({ index: idx, token: normalizedToken.substring(0, 30) + '...' });
+        console.log(`⚠️ Invalid FCM token ${idx}: ${normalizedToken.substring(0, 50)}... (length: ${normalizedToken.length})`);
       }
     });
 

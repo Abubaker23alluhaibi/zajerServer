@@ -24,27 +24,39 @@ class PushNotificationService {
       }
 
       // Trim whitespace
-      const trimmedToken = token.trim();
+      let trimmedToken = token.trim();
 
       if (trimmedToken.length === 0) {
         invalidTokens.push({ index: idx, reason: 'empty after trimming' });
         return;
       }
 
-      if (this.isExpoToken(trimmedToken)) {
-        validExpoTokens.push(trimmedToken);
-        console.log(`📝 Token ${idx} identified as Expo: ${trimmedToken.substring(0, 30)}...`);
+      // Handle tokens that might have a prefix before the actual token
+      // Format: "prefix:actualToken" or just "actualToken"
+      let normalizedToken = trimmedToken;
+      if (trimmedToken.includes(':')) {
+        const parts = trimmedToken.split(':');
+        // Take the longest part (likely the actual token)
+        // FCM tokens are typically much longer than prefixes
+        normalizedToken = parts.reduce((longest, part) => 
+          part.length > longest.length ? part : longest, ''
+        );
+      }
+
+      if (this.isExpoToken(normalizedToken)) {
+        validExpoTokens.push(normalizedToken);
+        console.log(`📝 Token ${idx} identified as Expo: ${normalizedToken.substring(0, 30)}...`);
       } else {
         // Check if it looks like a valid FCM token
-        if (FirebaseMessagingService.isValidFCMToken(trimmedToken)) {
-          validFCMTokens.push(trimmedToken);
-          console.log(`📝 Token ${idx} identified as FCM: ${trimmedToken.substring(0, 30)}...`);
+        if (FirebaseMessagingService.isValidFCMToken(normalizedToken)) {
+          validFCMTokens.push(normalizedToken);
+          console.log(`📝 Token ${idx} identified as FCM: ${normalizedToken.substring(0, 30)}...`);
         } else {
           invalidTokens.push({ 
             index: idx, 
-            reason: `invalid format (length: ${trimmedToken.length}, preview: ${trimmedToken.substring(0, 20)}...)` 
+            reason: `invalid format (length: ${normalizedToken.length}, preview: ${normalizedToken.substring(0, 20)}...)` 
           });
-          console.log(`⚠️ Token ${idx} is invalid: ${trimmedToken.substring(0, 50)}... (length: ${trimmedToken.length})`);
+          console.log(`⚠️ Token ${idx} is invalid: ${normalizedToken.substring(0, 50)}... (length: ${normalizedToken.length})`);
         }
       }
     });

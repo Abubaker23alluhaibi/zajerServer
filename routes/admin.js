@@ -182,8 +182,8 @@ router.post('/push-token', adminAuthMiddleware, async (req, res) => {
       });
     }
 
-    // Validate token format
-    const trimmedToken = typeof pushToken === 'string' ? pushToken.trim() : String(pushToken).trim();
+    // Validate and normalize token format
+    let trimmedToken = typeof pushToken === 'string' ? pushToken.trim() : String(pushToken).trim();
     
     if (trimmedToken.length === 0) {
       return res.status(400).json({
@@ -192,40 +192,64 @@ router.post('/push-token', adminAuthMiddleware, async (req, res) => {
       });
     }
 
+    // Handle tokens that might have a prefix before the actual token
+    // Format: "prefix:actualToken" or just "actualToken"
+    let normalizedToken = trimmedToken;
+    if (trimmedToken.includes(':')) {
+      const parts = trimmedToken.split(':');
+      // Take the longest part (likely the actual token)
+      // FCM tokens are typically much longer than prefixes
+      normalizedToken = parts.reduce((longest, part) => 
+        part.length > longest.length ? part : longest, ''
+      );
+      console.log(`📝 Token normalized from ${trimmedToken.length} to ${normalizedToken.length} chars`);
+    }
+
     // Check if token is valid (either Expo or FCM)
-    const isExpoToken = PushNotificationService.isExpoToken(trimmedToken);
-    const isValidFCM = FirebaseMessagingService.isValidFCMToken(trimmedToken);
+    const isExpoToken = PushNotificationService.isExpoToken(normalizedToken);
+    const isValidFCM = FirebaseMessagingService.isValidFCMToken(normalizedToken);
 
     if (!isExpoToken && !isValidFCM) {
-      console.log(`⚠️ Invalid push token format (length: ${trimmedToken.length}): ${trimmedToken.substring(0, 50)}...`);
+      console.log(`⚠️ Invalid push token format (length: ${normalizedToken.length}): ${normalizedToken.substring(0, 50)}...`);
       return res.status(400).json({
         status: 'error',
         message: 'Invalid push token format. Token must be a valid Expo Push Token or FCM token.',
         details: {
-          tokenLength: trimmedToken.length,
-          tokenPreview: trimmedToken.substring(0, 30) + '...',
+          tokenLength: normalizedToken.length,
+          tokenPreview: normalizedToken.substring(0, 30) + '...',
           isExpoToken: isExpoToken,
           isValidFCM: isValidFCM
         }
       });
     }
 
-    // Update all admin accounts with the push token (or you can use req.admin.adminId to update specific admin)
-    const admin = await Admin.findOne({ isActive: true });
+    // Update the specific admin account that is logged in
+    // Use req.admin.adminId (MongoDB _id) or adminIdString from the middleware
+    let admin = null;
+    if (req.admin?.adminId) {
+      // req.admin.adminId is MongoDB _id
+      admin = await Admin.findById(req.admin.adminId);
+    } else if (req.admin?.adminIdString) {
+      // req.admin.adminIdString is the adminId field
+      admin = await Admin.findOne({ adminId: req.admin.adminIdString, isActive: true });
+    }
     
-    if (!admin) {
+    // Fallback: if adminId not found, try to find any active admin
+    const adminToUpdate = admin || await Admin.findOne({ isActive: true });
+    
+    if (!adminToUpdate) {
       return res.status(404).json({
         status: 'error',
         message: 'Admin not found'
       });
     }
 
-    admin.pushToken = trimmedToken;
-    admin.updatedAt = new Date();
-    await admin.save();
+    adminToUpdate.pushToken = normalizedToken;
+    adminToUpdate.updatedAt = new Date();
+    await adminToUpdate.save();
 
     const tokenType = isExpoToken ? 'Expo' : 'FCM';
-    console.log(`✅ Admin push token registered (${tokenType}): ${trimmedToken.substring(0, 30)}... (length: ${trimmedToken.length})`);
+    console.log(`✅ Admin push token registered (${tokenType}) for admin: ${adminToUpdate.adminId}, token: ${normalizedToken.substring(0, 30)}... (length: ${normalizedToken.length})`);
 
     res.status(200).json({
       status: 'success',
