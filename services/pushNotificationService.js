@@ -25,10 +25,14 @@ class PushNotificationService {
       tokens.forEach(token => {
         if (this.isExpoToken(token)) {
           expoTokens.push(token);
+          console.log(`📝 Token identified as Expo: ${token.substring(0, 30)}...`);
         } else {
           fcmTokens.push(token);
+          console.log(`📝 Token identified as FCM: ${token.substring(0, 30)}...`);
         }
       });
+
+      console.log(`📊 Tokens breakdown: ${expoTokens.length} Expo, ${fcmTokens.length} FCM`);
 
       const results = [];
 
@@ -115,10 +119,14 @@ class PushNotificationService {
           
           if (fcmResponse.ok && fcmResult.data) {
             console.log(`✅ FCM push notifications sent to ${fcmTokens.length} token(s)`);
+            console.log('📋 FCM Response:', JSON.stringify(fcmResult.data, null, 2));
             results.push(fcmResult.data);
           } else {
-            console.error('❌ Failed to send FCM push notifications:', fcmResult);
-            console.log('💡 Note: FCM tokens may require Firebase Admin SDK for better support');
+            console.error('❌ Failed to send FCM push notifications via Expo API');
+            console.error('📋 FCM Error Response:', JSON.stringify(fcmResult, null, 2));
+            console.log('💡 IMPORTANT: FCM tokens require Firebase Admin SDK!');
+            console.log('💡 Expo Push API does NOT support FCM tokens directly');
+            console.log('💡 Solution: Install firebase-admin and use Firebase Admin SDK');
           }
         } catch (error) {
           console.error('❌ Error sending FCM notifications:', error);
