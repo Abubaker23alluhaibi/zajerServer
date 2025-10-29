@@ -254,12 +254,16 @@ router.post('/push-token', adminAuthMiddleware, async (req, res) => {
       });
     }
 
-    adminToUpdate.pushToken = normalizedToken;
+    // Save the ORIGINAL token (with prefix if exists) for Firebase compatibility
+    // We'll normalize it when sending, but need the original for potential retry
+    adminToUpdate.pushToken = trimmedToken; // Save original token, not normalized
     adminToUpdate.updatedAt = new Date();
     await adminToUpdate.save();
 
     const tokenType = isExpoToken ? 'Expo' : 'FCM';
-    console.log(`✅ Admin push token registered (${tokenType}) for admin: ${adminToUpdate.adminId}, token: ${normalizedToken.substring(0, 30)}... (length: ${normalizedToken.length})`);
+    console.log(`✅ Admin push token registered (${tokenType}) for admin: ${adminToUpdate.adminId}`);
+    console.log(`   Original token length: ${trimmedToken.length}, Normalized: ${normalizedToken.length}`);
+    console.log(`   Token preview: ${trimmedToken.substring(0, 50)}...`);
 
     res.status(200).json({
       status: 'success',

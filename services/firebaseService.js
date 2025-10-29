@@ -190,9 +190,13 @@ class FirebaseMessagingService {
     const validTokens = [];
     const invalidTokens = [];
     
+      // Store original tokens for fallback
+      const originalTokens = [...tokens];
+      
       tokens.forEach((token, idx) => {
       // Normalize token - extract actual token if it has a colon
       let normalizedToken = typeof token === 'string' ? token.trim() : String(token).trim();
+      const originalToken = normalizedToken;
       
       // Handle tokens with colons (format: "prefix:actualToken")
       // For Android FCM tokens from Expo, the format is typically "projectNumber:actualToken"
@@ -212,7 +216,12 @@ class FirebaseMessagingService {
       }
       
       if (this.isValidFCMToken(normalizedToken)) {
-        validTokens.push(normalizedToken); // Use normalized token
+        // Store both original and normalized for fallback attempt
+        validTokens.push({ 
+          normalized: normalizedToken, 
+          original: originalToken,
+          hasColon: originalToken.includes(':')
+        });
       } else {
         invalidTokens.push({ index: idx, token: normalizedToken.substring(0, 30) + '...' });
         console.log(`⚠️ Invalid FCM token ${idx}: ${normalizedToken.substring(0, 50)}... (length: ${normalizedToken.length})`);
@@ -270,13 +279,15 @@ class FirebaseMessagingService {
         },
       };
 
-      // إرسال للعديد من tokens
-      console.log(`🔥 Attempting to send to ${validTokens.length} token(s)`);
-      console.log(`📝 First token preview: ${validTokens[0]?.substring(0, 60)}...`);
+      // Extract normalized tokens for sending
+      const tokensToSend = validTokens.map(t => typeof t === 'object' ? t.normalized : t);
+      
+      console.log(`🔥 Attempting to send to ${tokensToSend.length} token(s)`);
+      console.log(`📝 First token preview: ${tokensToSend[0]?.substring(0, 60)}...`);
       
       const response = await admin.messaging().sendEachForMulticast({
         ...message,
-        tokens: validTokens,
+        tokens: tokensToSend,
       });
       
       console.log(`✅ Firebase notifications sent: ${response.successCount}/${validTokens.length} successful`);
@@ -284,7 +295,10 @@ class FirebaseMessagingService {
       if (response.failureCount > 0) {
         console.log(`⚠️ ${response.failureCount} notifications failed`);
         const invalidTokenIndices = [];
-        response.responses.forEach((resp, idx) => {
+        const retryPromises = [];
+        
+        for (let idx = 0; idx < response.responses.length; idx++) {
+          const resp = response.responses[idx];
           if (!resp.success) {
             const errorCode = resp.error?.code;
             const errorMessage = resp.error?.message;
@@ -294,14 +308,42 @@ class FirebaseMessagingService {
             // Only remove tokens for actual token errors, not payload errors
             if (errorCode === 'messaging/invalid-registration-token' || 
                 errorCode === 'messaging/registration-token-not-registered') {
-              invalidTokenIndices.push(validTokens[idx]);
-              console.log(`  🗑️ Marking token ${idx} for removal (invalid or unregistered)`);
+              // Try original token if normalized failed and had colon
+              const tokenInfo = validTokens[idx];
+              if (tokenInfo && typeof tokenInfo === 'object' && tokenInfo.hasColon && errorCode === 'messaging/registration-token-not-registered') {
+                console.log(`  🔄 Retrying with original token (with prefix) for token ${idx}...`);
+                // Create retry promise
+                retryPromises.push(
+                  admin.messaging().send({
+                    ...message,
+                    token: tokenInfo.original,
+                  })
+                  .then((originalResponse) => {
+                    console.log(`  ✅ Retry with original token succeeded for token ${idx}`);
+                    return { success: true, idx };
+                  })
+                  .catch((retryError) => {
+                    console.log(`  ❌ Retry with original token also failed: ${retryError.message}`);
+                    invalidTokenIndices.push(tokensToSend[idx]);
+                    console.log(`  🗑️ Marking token ${idx} for removal (both normalized and original failed)`);
+                    return { success: false, idx };
+                  })
+                );
+              } else {
+                invalidTokenIndices.push(tokensToSend[idx]);
+                console.log(`  🗑️ Marking token ${idx} for removal (invalid or unregistered)`);
+              }
             } else {
               // Payload errors or other errors don't mean the token is invalid
               console.log(`  ⚠️ Token ${idx} is valid but notification failed due to: ${errorCode}`);
             }
           }
-        });
+        }
+        
+        // Wait for all retries to complete
+        if (retryPromises.length > 0) {
+          await Promise.all(retryPromises);
+        }
         
         // Remove only truly invalid tokens from database
         if (invalidTokenIndices.length > 0) {
