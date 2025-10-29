@@ -2,7 +2,14 @@ const fetch = require('node-fetch');
 
 class PushNotificationService {
   /**
-   * Send push notification to Expo
+   * Check if token is Expo Push Token or FCM token
+   */
+  static isExpoToken(token) {
+    return token && typeof token === 'string' && token.startsWith('ExponentPushToken');
+  }
+
+  /**
+   * Send push notification - supports both Expo Push Tokens and FCM tokens
    */
   static async sendPushNotification(tokens, title, body, data = {}) {
     try {
@@ -11,50 +18,114 @@ class PushNotificationService {
         return;
       }
 
-      const messages = tokens.map(token => ({
-        to: token,
-        sound: 'default',
-        title: title,
-        body: body,
-        data: data,
-        priority: 'high',
-        channelId: 'default',
-        // إعدادات إضافية للأندرويد (مهم جداً للإشعارات في الخلفية)
-        android: {
-          channelId: 'default',
-          priority: 'high',
-          sound: 'default',
-        },
-        // إعدادات iOS
-        apns: {
-          payload: {
-            aps: {
-              sound: 'default',
-              badge: 1,
-            },
-          },
-        },
-      }));
+      // فصل Tokens حسب النوع
+      const expoTokens = [];
+      const fcmTokens = [];
 
-      const response = await fetch('https://exp.host/--/api/v2/push/send', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Accept-Encoding': 'gzip, deflate',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(messages)
+      tokens.forEach(token => {
+        if (this.isExpoToken(token)) {
+          expoTokens.push(token);
+        } else {
+          fcmTokens.push(token);
+        }
       });
 
-      const result = await response.json();
-      
-      if (response.ok && result.data) {
-        console.log('✅ Push notifications sent successfully:', result.data);
-        return result.data;
-      } else {
-        console.error('❌ Failed to send push notifications:', result);
-        return null;
+      const results = [];
+
+      // إرسال Expo Push Tokens عبر Expo API
+      if (expoTokens.length > 0) {
+        try {
+          const expoMessages = expoTokens.map(token => ({
+            to: token,
+            sound: 'default',
+            title: title,
+            body: body,
+            data: data,
+            priority: 'high',
+            channelId: 'default',
+            android: {
+              channelId: 'default',
+              priority: 'high',
+              sound: 'default',
+            },
+            apns: {
+              payload: {
+                aps: {
+                  sound: 'default',
+                  badge: 1,
+                },
+              },
+            },
+          }));
+
+          const expoResponse = await fetch('https://exp.host/--/api/v2/push/send', {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Accept-Encoding': 'gzip, deflate',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(expoMessages)
+          });
+
+          const expoResult = await expoResponse.json();
+          
+          if (expoResponse.ok && expoResult.data) {
+            console.log(`✅ Expo push notifications sent to ${expoTokens.length} token(s)`);
+            results.push(expoResult.data);
+          } else {
+            console.error('❌ Failed to send Expo push notifications:', expoResult);
+          }
+        } catch (error) {
+          console.error('❌ Error sending Expo notifications:', error);
+        }
       }
+
+      // إرسال FCM Tokens عبر Expo API (Expo يدعم FCM tokens أيضاً)
+      if (fcmTokens.length > 0) {
+        try {
+          // Expo Push API يدعم FCM tokens إذا كانت في format صحيح
+          // لكن الأفضل استخدام Firebase Admin SDK (سنفعله لاحقاً)
+          const fcmMessages = fcmTokens.map(token => ({
+            to: token,
+            sound: 'default',
+            title: title,
+            body: body,
+            data: data,
+            priority: 'high',
+            channelId: 'default',
+            android: {
+              channelId: 'default',
+              priority: 'high',
+              sound: 'default',
+            },
+          }));
+
+          const fcmResponse = await fetch('https://exp.host/--/api/v2/push/send', {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Accept-Encoding': 'gzip, deflate',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(fcmMessages)
+          });
+
+          const fcmResult = await fcmResponse.json();
+          
+          if (fcmResponse.ok && fcmResult.data) {
+            console.log(`✅ FCM push notifications sent to ${fcmTokens.length} token(s)`);
+            results.push(fcmResult.data);
+          } else {
+            console.error('❌ Failed to send FCM push notifications:', fcmResult);
+            console.log('💡 Note: FCM tokens may require Firebase Admin SDK for better support');
+          }
+        } catch (error) {
+          console.error('❌ Error sending FCM notifications:', error);
+        }
+      }
+
+      return results.length > 0 ? results : null;
     } catch (error) {
       console.error('❌ Error sending push notifications:', error);
       return null;
