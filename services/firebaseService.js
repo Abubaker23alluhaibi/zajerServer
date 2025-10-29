@@ -68,16 +68,20 @@ class FirebaseMessagingService {
     }
 
     try {
+      // تحويل جميع قيم data إلى strings (Firebase يتطلب strings فقط)
+      const stringData = {};
+      for (const [key, value] of Object.entries(data)) {
+        if (value !== null && value !== undefined) {
+          stringData[key] = String(value);
+        }
+      }
+
       const message = {
         notification: { 
           title: title,
           body: body
         },
-        data: {
-          ...data,
-          sound: 'default',
-          priority: 'high',
-        },
+        data: stringData,
         android: {
           priority: 'high',
           notification: {
@@ -125,15 +129,21 @@ class FirebaseMessagingService {
     }
 
     try {
+      // تحويل جميع قيم data إلى strings (Firebase يتطلب strings فقط)
+      const stringData = {};
+      for (const [key, value] of Object.entries(data)) {
+        if (value !== null && value !== undefined) {
+          // تحويل أي قيمة إلى string (ObjectId, numbers, etc.)
+          stringData[key] = String(value);
+        }
+      }
+
       const message = {
         notification: { 
           title: title,
           body: body
         },
-        data: {
-          ...data,
-          sound: 'default',
-        },
+        data: stringData,
         android: {
           priority: 'high',
           notification: {
