@@ -125,19 +125,31 @@ class FirebaseMessagingService {
       return false;
     }
     
-    // FCM tokens are typically 152+ characters long
-    // They don't contain spaces and are base64-like
-    if (token.length < 100) {
-      return false;
-    }
+    // Trim whitespace
+    const trimmedToken = token.trim();
     
     // Check if it's not an Expo token (Expo tokens start with ExponentPushToken)
-    if (token.startsWith('ExponentPushToken')) {
+    if (trimmedToken.startsWith('ExponentPushToken')) {
       return false;
     }
     
-    // FCM tokens don't contain spaces or certain special characters
-    if (token.includes(' ') || token.includes('\n') || token.includes('\r')) {
+    // FCM/APNs tokens can vary in length:
+    // - APNs tokens are typically 64 characters (hex)
+    // - FCM tokens are typically 152+ characters (base64-like)
+    // Accept tokens that are at least 32 characters (minimum valid length)
+    if (trimmedToken.length < 32) {
+      return false;
+    }
+    
+    // FCM/APNs tokens don't contain spaces or certain special characters
+    if (trimmedToken.includes(' ') || trimmedToken.includes('\n') || trimmedToken.includes('\r')) {
+      return false;
+    }
+    
+    // Check if it looks like a valid token (alphanumeric and some special chars like - _)
+    // Both hex (APNs) and base64 (FCM) tokens use alphanumeric characters
+    const tokenPattern = /^[a-zA-Z0-9_-]+$/;
+    if (!tokenPattern.test(trimmedToken)) {
       return false;
     }
     
