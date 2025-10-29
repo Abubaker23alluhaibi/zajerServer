@@ -56,8 +56,11 @@ class PushNotificationService {
       } else {
         // Check if it looks like a valid FCM token
         if (FirebaseMessagingService.isValidFCMToken(normalizedToken)) {
-          validFCMTokens.push(normalizedToken);
-          console.log(`📝 Token ${idx} identified as FCM: ${normalizedToken.substring(0, 30)}...`);
+          // إرسال Token الأصلي (مع prefix) بدلاً من normalized
+          // لأن Firebase قد يحتاج الـ prefix للتعرف على الـ token الصحيح
+          // firebaseService.js سيتولى المحاولة بالصيغتين
+          validFCMTokens.push(trimmedToken); // استخدم trimmedToken الأصلي (مع prefix إن وجد)
+          console.log(`📝 Token ${idx} identified as FCM: ${trimmedToken.substring(0, 30)}... (original with prefix preserved)`);
         } else {
           invalidTokens.push({ 
             index: idx, 
