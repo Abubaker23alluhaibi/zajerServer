@@ -10,6 +10,53 @@ class PushNotificationService {
   }
 
   /**
+   * Validate and filter tokens
+   */
+  static validateTokens(tokens) {
+    const validExpoTokens = [];
+    const validFCMTokens = [];
+    const invalidTokens = [];
+
+    tokens.forEach((token, idx) => {
+      if (!token || typeof token !== 'string') {
+        invalidTokens.push({ index: idx, reason: 'empty or not a string' });
+        return;
+      }
+
+      // Trim whitespace
+      const trimmedToken = token.trim();
+
+      if (trimmedToken.length === 0) {
+        invalidTokens.push({ index: idx, reason: 'empty after trimming' });
+        return;
+      }
+
+      if (this.isExpoToken(trimmedToken)) {
+        validExpoTokens.push(trimmedToken);
+        console.log(`📝 Token ${idx} identified as Expo: ${trimmedToken.substring(0, 30)}...`);
+      } else {
+        // Check if it looks like a valid FCM token
+        if (FirebaseMessagingService.isValidFCMToken(trimmedToken)) {
+          validFCMTokens.push(trimmedToken);
+          console.log(`📝 Token ${idx} identified as FCM: ${trimmedToken.substring(0, 30)}...`);
+        } else {
+          invalidTokens.push({ 
+            index: idx, 
+            reason: `invalid format (length: ${trimmedToken.length}, preview: ${trimmedToken.substring(0, 20)}...)` 
+          });
+          console.log(`⚠️ Token ${idx} is invalid: ${trimmedToken.substring(0, 50)}... (length: ${trimmedToken.length})`);
+        }
+      }
+    });
+
+    if (invalidTokens.length > 0) {
+      console.log(`⚠️ Found ${invalidTokens.length} invalid token(s):`, invalidTokens.map(t => t.reason).join(', '));
+    }
+
+    return { validExpoTokens, validFCMTokens, invalidTokens };
+  }
+
+  /**
    * Send push notification - supports both Expo Push Tokens and FCM tokens
    */
   static async sendPushNotification(tokens, title, body, data = {}) {
@@ -19,28 +66,17 @@ class PushNotificationService {
         return;
       }
 
-      // فصل Tokens حسب النوع
-      const expoTokens = [];
-      const fcmTokens = [];
+      // Validate and separate tokens by type
+      const { validExpoTokens, validFCMTokens, invalidTokens } = this.validateTokens(tokens);
 
-      tokens.forEach(token => {
-        if (this.isExpoToken(token)) {
-          expoTokens.push(token);
-          console.log(`📝 Token identified as Expo: ${token.substring(0, 30)}...`);
-        } else {
-          fcmTokens.push(token);
-          console.log(`📝 Token identified as FCM: ${token.substring(0, 30)}...`);
-        }
-      });
-
-      console.log(`📊 Tokens breakdown: ${expoTokens.length} Expo, ${fcmTokens.length} FCM`);
+      console.log(`📊 Tokens breakdown: ${validExpoTokens.length} Expo, ${validFCMTokens.length} FCM, ${invalidTokens.length} invalid`);
 
       const results = [];
 
       // إرسال Expo Push Tokens عبر Expo API
-      if (expoTokens.length > 0) {
+      if (validExpoTokens.length > 0) {
         try {
-          const expoMessages = expoTokens.map(token => ({
+          const expoMessages = validExpoTokens.map(token => ({
             to: token,
             sound: 'default',
             title: title,
@@ -76,7 +112,7 @@ class PushNotificationService {
           const expoResult = await expoResponse.json();
           
           if (expoResponse.ok && expoResult.data) {
-            console.log(`✅ Expo push notifications sent to ${expoTokens.length} token(s)`);
+            console.log(`✅ Expo push notifications sent to ${validExpoTokens.length} token(s)`);
             results.push(expoResult.data);
           } else {
             console.error('❌ Failed to send Expo push notifications:', expoResult);
@@ -87,13 +123,13 @@ class PushNotificationService {
       }
 
       // إرسال FCM Tokens عبر Firebase Admin SDK
-      if (fcmTokens.length > 0) {
+      if (validFCMTokens.length > 0) {
         try {
-          console.log(`🔥 Sending ${fcmTokens.length} FCM notification(s) via Firebase Admin SDK...`);
+          console.log(`🔥 Sending ${validFCMTokens.length} FCM notification(s) via Firebase Admin SDK...`);
           
           // استخدام Firebase Admin SDK لإرسال FCM tokens
           const firebaseResult = await FirebaseMessagingService.sendToTokens(
-            fcmTokens,
+            validFCMTokens,
             title,
             body,
             data

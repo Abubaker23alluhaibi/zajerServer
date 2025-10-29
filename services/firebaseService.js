@@ -117,6 +117,33 @@ class FirebaseMessagingService {
     }
   }
 
+  /**
+   * Validate FCM token format
+   */
+  static isValidFCMToken(token) {
+    if (!token || typeof token !== 'string') {
+      return false;
+    }
+    
+    // FCM tokens are typically 152+ characters long
+    // They don't contain spaces and are base64-like
+    if (token.length < 100) {
+      return false;
+    }
+    
+    // Check if it's not an Expo token (Expo tokens start with ExponentPushToken)
+    if (token.startsWith('ExponentPushToken')) {
+      return false;
+    }
+    
+    // FCM tokens don't contain spaces or certain special characters
+    if (token.includes(' ') || token.includes('\n') || token.includes('\r')) {
+      return false;
+    }
+    
+    return true;
+  }
+
   static async sendToTokens(tokens, title, body, data = {}) {
     if (!firebaseInitialized) {
       console.log('⚠️ Firebase not initialized, skipping FCM notifications');
@@ -126,6 +153,28 @@ class FirebaseMessagingService {
     if (!tokens || tokens.length === 0) {
       console.log('⚠️ No FCM tokens provided');
       return null;
+    }
+
+    // Filter out invalid tokens before sending
+    const validTokens = [];
+    const invalidTokens = [];
+    
+    tokens.forEach((token, idx) => {
+      if (this.isValidFCMToken(token)) {
+        validTokens.push(token);
+      } else {
+        invalidTokens.push({ index: idx, token: token.substring(0, 30) + '...' });
+        console.log(`⚠️ Invalid FCM token ${idx}: ${token.substring(0, 50)}... (length: ${token.length})`);
+      }
+    });
+
+    if (invalidTokens.length > 0) {
+      console.log(`⚠️ Filtered out ${invalidTokens.length} invalid FCM token(s)`);
+    }
+
+    if (validTokens.length === 0) {
+      console.log('⚠️ No valid FCM tokens to send');
+      return { successCount: 0, failureCount: tokens.length, responses: [] };
     }
 
     try {
@@ -165,24 +214,64 @@ class FirebaseMessagingService {
       // إرسال للعديد من tokens
       const response = await admin.messaging().sendEachForMulticast({
         ...message,
-        tokens: tokens,
+        tokens: validTokens,
       });
       
-      console.log(`✅ Firebase notifications sent: ${response.successCount}/${tokens.length} successful`);
+      console.log(`✅ Firebase notifications sent: ${response.successCount}/${validTokens.length} successful`);
       
       if (response.failureCount > 0) {
         console.log(`⚠️ ${response.failureCount} notifications failed`);
+        const invalidTokenIndices = [];
         response.responses.forEach((resp, idx) => {
           if (!resp.success) {
-            console.log(`  ❌ Token ${idx}: ${resp.error?.message}`);
+            const errorCode = resp.error?.code;
+            const errorMessage = resp.error?.message;
+            console.log(`  ❌ Token ${idx}: ${errorMessage}`);
+            
+            // Track tokens that need to be removed from database
+            if (errorCode === 'messaging/invalid-registration-token' || 
+                errorCode === 'messaging/registration-token-not-registered' ||
+                errorCode === 'messaging/invalid-argument') {
+              invalidTokenIndices.push(validTokens[idx]);
+            }
           }
         });
+        
+        // Remove invalid tokens from database
+        if (invalidTokenIndices.length > 0) {
+          await this.removeInvalidTokens(invalidTokenIndices);
+        }
       }
       
-      return response;
+      // Return response with adjusted counts to include filtered tokens as failures
+      return {
+        ...response,
+        failureCount: response.failureCount + invalidTokens.length,
+        successCount: response.successCount
+      };
     } catch (error) {
       console.error('❌ Firebase send error:', error.message);
       throw error;
+    }
+  }
+
+  /**
+   * Remove invalid tokens from Admin collection
+   */
+  static async removeInvalidTokens(invalidTokens) {
+    try {
+      const Admin = require('../models/Admin');
+      const updatePromises = invalidTokens.map(token => 
+        Admin.updateMany(
+          { pushToken: token },
+          { $set: { pushToken: null } }
+        )
+      );
+      
+      await Promise.all(updatePromises);
+      console.log(`🧹 Removed ${invalidTokens.length} invalid token(s) from database`);
+    } catch (error) {
+      console.error('❌ Error removing invalid tokens:', error.message);
     }
   }
 }

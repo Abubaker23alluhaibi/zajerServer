@@ -4,6 +4,8 @@ const Customer = require('../models/Customer');
 const Order = require('../models/Order');
 const Admin = require('../models/Admin');
 const { adminAuthMiddleware } = require('../middleware/auth');
+const PushNotificationService = require('../services/pushNotificationService');
+const FirebaseMessagingService = require('../services/firebaseService');
 
 // Get dashboard statistics
 const getDashboardStats = async (req, res) => {
@@ -180,6 +182,34 @@ router.post('/push-token', adminAuthMiddleware, async (req, res) => {
       });
     }
 
+    // Validate token format
+    const trimmedToken = typeof pushToken === 'string' ? pushToken.trim() : String(pushToken).trim();
+    
+    if (trimmedToken.length === 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Push token cannot be empty'
+      });
+    }
+
+    // Check if token is valid (either Expo or FCM)
+    const isExpoToken = PushNotificationService.isExpoToken(trimmedToken);
+    const isValidFCM = FirebaseMessagingService.isValidFCMToken(trimmedToken);
+
+    if (!isExpoToken && !isValidFCM) {
+      console.log(`⚠️ Invalid push token format (length: ${trimmedToken.length}): ${trimmedToken.substring(0, 50)}...`);
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid push token format. Token must be a valid Expo Push Token or FCM token.',
+        details: {
+          tokenLength: trimmedToken.length,
+          tokenPreview: trimmedToken.substring(0, 30) + '...',
+          isExpoToken: isExpoToken,
+          isValidFCM: isValidFCM
+        }
+      });
+    }
+
     // Update all admin accounts with the push token (or you can use req.admin.adminId to update specific admin)
     const admin = await Admin.findOne({ isActive: true });
     
@@ -190,15 +220,20 @@ router.post('/push-token', adminAuthMiddleware, async (req, res) => {
       });
     }
 
-    admin.pushToken = pushToken;
+    admin.pushToken = trimmedToken;
     admin.updatedAt = new Date();
     await admin.save();
 
-    console.log('✅ Admin push token registered:', pushToken);
+    const tokenType = isExpoToken ? 'Expo' : 'FCM';
+    console.log(`✅ Admin push token registered (${tokenType}): ${trimmedToken.substring(0, 30)}... (length: ${trimmedToken.length})`);
 
     res.status(200).json({
       status: 'success',
-      message: 'تم تسجيل رمز الإشعارات بنجاح'
+      message: 'تم تسجيل رمز الإشعارات بنجاح',
+      data: {
+        tokenType,
+        tokenPreview: trimmedToken.substring(0, 30) + '...'
+      }
     });
   } catch (error) {
     console.error('Register push token error:', error);
