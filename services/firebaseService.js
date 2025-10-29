@@ -227,8 +227,8 @@ class FirebaseMessagingService {
       const message = {
         notification: { 
           title: title,
-          body: body,
-          sound: 'default', // إضافة الصوت في المستوى الأساسي أيضاً
+          body: body
+          // لا يمكن إضافة sound هنا - يجب أن يكون في android.notification أو apns.payload.aps
         },
         data: stringData,
         android: {
@@ -274,15 +274,19 @@ class FirebaseMessagingService {
             console.log(`  ❌ Token ${idx}: ${errorMessage}`);
             
             // Track tokens that need to be removed from database
+            // Only remove tokens for actual token errors, not payload errors
             if (errorCode === 'messaging/invalid-registration-token' || 
-                errorCode === 'messaging/registration-token-not-registered' ||
-                errorCode === 'messaging/invalid-argument') {
+                errorCode === 'messaging/registration-token-not-registered') {
               invalidTokenIndices.push(validTokens[idx]);
+              console.log(`  🗑️ Marking token ${idx} for removal (invalid or unregistered)`);
+            } else {
+              // Payload errors or other errors don't mean the token is invalid
+              console.log(`  ⚠️ Token ${idx} is valid but notification failed due to: ${errorCode}`);
             }
           }
         });
         
-        // Remove invalid tokens from database
+        // Remove only truly invalid tokens from database
         if (invalidTokenIndices.length > 0) {
           await this.removeInvalidTokens(invalidTokenIndices);
         }
