@@ -136,14 +136,20 @@ class FirebaseMessagingService {
     
     // Handle tokens that might have a prefix before the actual FCM token
     // Format: "prefix:actualToken" or just "actualToken"
-    // Extract the actual token part if there's a colon
+    // For Android FCM tokens from Expo, the format is typically "projectNumber:actualToken"
+    // We should take the part AFTER the colon as it's the actual FCM token
     if (trimmedToken.includes(':')) {
       const parts = trimmedToken.split(':');
-      // Take the longest part (likely the actual token)
-      // FCM tokens are typically much longer than prefixes
-      trimmedToken = parts.reduce((longest, part) => 
-        part.length > longest.length ? part : longest, ''
-      );
+      if (parts.length >= 2) {
+        // Take the part after the colon (typically the actual FCM token)
+        // For Android: "projectNumber:FCM_TOKEN" -> use FCM_TOKEN
+        trimmedToken = parts.slice(1).join(':'); // In case there are multiple colons
+      } else {
+        // Fallback: take the longest part if split didn't work as expected
+        trimmedToken = parts.reduce((longest, part) => 
+          part.length > longest.length ? part : longest, ''
+        );
+      }
     }
     
     // FCM/APNs tokens can vary in length:
@@ -189,12 +195,20 @@ class FirebaseMessagingService {
       let normalizedToken = typeof token === 'string' ? token.trim() : String(token).trim();
       
       // Handle tokens with colons (format: "prefix:actualToken")
+      // For Android FCM tokens from Expo, the format is typically "projectNumber:actualToken"
+      // We should take the part AFTER the colon as it's the actual FCM token
       if (normalizedToken.includes(':')) {
         const parts = normalizedToken.split(':');
-        // Take the longest part (likely the actual FCM token)
-        normalizedToken = parts.reduce((longest, part) => 
-          part.length > longest.length ? part : longest, ''
-        );
+        if (parts.length >= 2) {
+          // Take the part after the colon (typically the actual FCM token)
+          // For Android: "projectNumber:FCM_TOKEN" -> use FCM_TOKEN
+          normalizedToken = parts.slice(1).join(':'); // In case there are multiple colons
+        } else {
+          // Fallback: take the longest part if split didn't work as expected
+          normalizedToken = parts.reduce((longest, part) => 
+            part.length > longest.length ? part : longest, ''
+          );
+        }
       }
       
       if (this.isValidFCMToken(normalizedToken)) {
@@ -257,6 +271,9 @@ class FirebaseMessagingService {
       };
 
       // إرسال للعديد من tokens
+      console.log(`🔥 Attempting to send to ${validTokens.length} token(s)`);
+      console.log(`📝 First token preview: ${validTokens[0]?.substring(0, 60)}...`);
+      
       const response = await admin.messaging().sendEachForMulticast({
         ...message,
         tokens: validTokens,

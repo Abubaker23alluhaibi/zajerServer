@@ -33,14 +33,21 @@ class PushNotificationService {
 
       // Handle tokens that might have a prefix before the actual token
       // Format: "prefix:actualToken" or just "actualToken"
+      // For Android FCM tokens from Expo, the format is typically "projectNumber:actualToken"
+      // We should take the part AFTER the colon as it's the actual FCM token
       let normalizedToken = trimmedToken;
       if (trimmedToken.includes(':')) {
         const parts = trimmedToken.split(':');
-        // Take the longest part (likely the actual token)
-        // FCM tokens are typically much longer than prefixes
-        normalizedToken = parts.reduce((longest, part) => 
-          part.length > longest.length ? part : longest, ''
-        );
+        if (parts.length >= 2) {
+          // Take the part after the colon (typically the actual FCM token)
+          // For Android: "projectNumber:FCM_TOKEN" -> use FCM_TOKEN
+          normalizedToken = parts.slice(1).join(':'); // In case there are multiple colons
+        } else {
+          // Fallback: take the longest part if split didn't work as expected
+          normalizedToken = parts.reduce((longest, part) => 
+            part.length > longest.length ? part : longest, ''
+          );
+        }
       }
 
       if (this.isExpoToken(normalizedToken)) {

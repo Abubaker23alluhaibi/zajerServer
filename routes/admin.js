@@ -194,15 +194,25 @@ router.post('/push-token', adminAuthMiddleware, async (req, res) => {
 
     // Handle tokens that might have a prefix before the actual token
     // Format: "prefix:actualToken" or just "actualToken"
+    // For Android FCM tokens from Expo, the format is typically "projectNumber:actualToken"
+    // We should take the part AFTER the colon as it's the actual FCM token
     let normalizedToken = trimmedToken;
     if (trimmedToken.includes(':')) {
       const parts = trimmedToken.split(':');
-      // Take the longest part (likely the actual token)
-      // FCM tokens are typically much longer than prefixes
-      normalizedToken = parts.reduce((longest, part) => 
-        part.length > longest.length ? part : longest, ''
-      );
-      console.log(`📝 Token normalized from ${trimmedToken.length} to ${normalizedToken.length} chars`);
+      if (parts.length >= 2) {
+        // Take the part after the colon (typically the actual FCM token)
+        // For Android: "projectNumber:FCM_TOKEN" -> use FCM_TOKEN
+        normalizedToken = parts.slice(1).join(':'); // In case there are multiple colons
+        console.log(`📝 Token normalized from ${trimmedToken.length} to ${normalizedToken.length} chars`);
+        console.log(`📝 Original token preview: ${trimmedToken.substring(0, 50)}...`);
+        console.log(`📝 Normalized token preview: ${normalizedToken.substring(0, 50)}...`);
+      } else {
+        // Fallback: take the longest part if split didn't work as expected
+        normalizedToken = parts.reduce((longest, part) => 
+          part.length > longest.length ? part : longest, ''
+        );
+        console.log(`⚠️ Token split unusual, using longest part: ${normalizedToken.length} chars`);
+      }
     }
 
     // Check if token is valid (either Expo or FCM)
