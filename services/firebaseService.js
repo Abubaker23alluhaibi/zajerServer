@@ -303,11 +303,19 @@ class FirebaseMessagingService {
         },
       };
 
-      // Extract normalized tokens for sending
-      const tokensToSend = validTokens.map(t => typeof t === 'object' ? t.normalized : t);
+      // Extract tokens for sending - محاولة Token الأصلي أولاً إذا كان لديه colon
+      // لأن Expo قد يرسل token بصيغة خاصة يجب تجربتها كما هي
+      const tokensToSend = validTokens.map(t => {
+        if (typeof t === 'object' && t.hasColon) {
+          // إذا كان Token لديه colon، جرب الأصل أولاً (قد يكون Expo format صحيح)
+          return t.original;
+        }
+        return typeof t === 'object' ? t.normalized : t;
+      });
       
       console.log(`🔥 Attempting to send to ${tokensToSend.length} token(s)`);
       console.log(`📝 First token preview: ${tokensToSend[0]?.substring(0, 60)}...`);
+      console.log(`📝 Token format check: ${tokensToSend[0]?.includes(':') ? 'Has prefix (will try as-is first)' : 'No prefix (normalized)'}`);
       
       const response = await admin.messaging().sendEachForMulticast({
         ...message,
@@ -332,27 +340,36 @@ class FirebaseMessagingService {
             // Only remove tokens for actual token errors, not payload errors
             if (errorCode === 'messaging/invalid-registration-token' || 
                 errorCode === 'messaging/registration-token-not-registered') {
-              // Try original token if normalized failed and had colon
+              // Try normalized token if original failed (عكس الماضي - الآن جربنا الأصل أولاً)
               const tokenInfo = validTokens[idx];
-              if (tokenInfo && typeof tokenInfo === 'object' && tokenInfo.hasColon && errorCode === 'messaging/registration-token-not-registered') {
-                console.log(`  🔄 Retrying with original token (with prefix) for token ${idx}...`);
-                // Create retry promise
-                retryPromises.push(
-                  admin.messaging().send({
-                    ...message,
-                    token: tokenInfo.original,
-                  })
-                  .then((originalResponse) => {
-                    console.log(`  ✅ Retry with original token succeeded for token ${idx}`);
-                    return { success: true, idx };
-                  })
-                  .catch((retryError) => {
-                    console.log(`  ❌ Retry with original token also failed: ${retryError.message}`);
-                    invalidTokenIndices.push(tokensToSend[idx]);
-                    console.log(`  🗑️ Marking token ${idx} for removal (both normalized and original failed)`);
-                    return { success: false, idx };
-                  })
-                );
+              if (tokenInfo && typeof tokenInfo === 'object' && tokenInfo.hasColon) {
+                // إذا استخدمنا الأصل وفشل، جرب normalized
+                const currentToken = tokensToSend[idx];
+                const isOriginal = currentToken === tokenInfo.original;
+                
+                if (isOriginal && tokenInfo.normalized !== tokenInfo.original) {
+                  console.log(`  🔄 Retrying with normalized token (without prefix) for token ${idx}...`);
+                  // Create retry promise
+                  retryPromises.push(
+                    admin.messaging().send({
+                      ...message,
+                      token: tokenInfo.normalized,
+                    })
+                    .then((normalizedResponse) => {
+                      console.log(`  ✅ Retry with normalized token succeeded for token ${idx}`);
+                      return { success: true, idx };
+                    })
+                    .catch((retryError) => {
+                      console.log(`  ❌ Retry with normalized token also failed: ${retryError.message}`);
+                      invalidTokenIndices.push(tokensToSend[idx]);
+                      console.log(`  🗑️ Marking token ${idx} for removal (both original and normalized failed)`);
+                      return { success: false, idx };
+                    })
+                  );
+                } else {
+                  invalidTokenIndices.push(tokensToSend[idx]);
+                  console.log(`  🗑️ Marking token ${idx} for removal (invalid or unregistered)`);
+                }
               } else {
                 invalidTokenIndices.push(tokensToSend[idx]);
                 console.log(`  🗑️ Marking token ${idx} for removal (invalid or unregistered)`);
