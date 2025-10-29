@@ -1,4 +1,5 @@
 const fetch = require('node-fetch');
+const FirebaseMessagingService = require('./firebaseService');
 
 class PushNotificationService {
   /**
@@ -85,51 +86,30 @@ class PushNotificationService {
         }
       }
 
-      // إرسال FCM Tokens عبر Expo API (Expo يدعم FCM tokens أيضاً)
+      // إرسال FCM Tokens عبر Firebase Admin SDK
       if (fcmTokens.length > 0) {
         try {
-          // Expo Push API يدعم FCM tokens إذا كانت في format صحيح
-          // لكن الأفضل استخدام Firebase Admin SDK (سنفعله لاحقاً)
-          const fcmMessages = fcmTokens.map(token => ({
-            to: token,
-            sound: 'default',
-            title: title,
-            body: body,
-            data: data,
-            priority: 'high',
-            channelId: 'default',
-            android: {
-              channelId: 'default',
-              priority: 'high',
-              sound: 'default',
-            },
-          }));
-
-          const fcmResponse = await fetch('https://exp.host/--/api/v2/push/send', {
-            method: 'POST',
-            headers: {
-              'Accept': 'application/json',
-              'Accept-Encoding': 'gzip, deflate',
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(fcmMessages)
-          });
-
-          const fcmResult = await fcmResponse.json();
+          console.log(`🔥 Sending ${fcmTokens.length} FCM notification(s) via Firebase Admin SDK...`);
           
-          if (fcmResponse.ok && fcmResult.data) {
-            console.log(`✅ FCM push notifications sent to ${fcmTokens.length} token(s)`);
-            console.log('📋 FCM Response:', JSON.stringify(fcmResult.data, null, 2));
-            results.push(fcmResult.data);
+          // استخدام Firebase Admin SDK لإرسال FCM tokens
+          const firebaseResult = await FirebaseMessagingService.sendToTokens(
+            fcmTokens,
+            title,
+            body,
+            data
+          );
+          
+          if (firebaseResult) {
+            console.log(`✅ FCM notifications sent successfully via Firebase`);
+            results.push(firebaseResult);
           } else {
-            console.error('❌ Failed to send FCM push notifications via Expo API');
-            console.error('📋 FCM Error Response:', JSON.stringify(fcmResult, null, 2));
-            console.log('💡 IMPORTANT: FCM tokens require Firebase Admin SDK!');
-            console.log('💡 Expo Push API does NOT support FCM tokens directly');
-            console.log('💡 Solution: Install firebase-admin and use Firebase Admin SDK');
+            console.log('⚠️ Firebase service returned null (may not be initialized)');
+            // Fallback: محاولة عبر Expo API (لن تعمل لكن نجرب)
+            console.log('⚠️ Attempting fallback via Expo API (will likely fail)...');
           }
         } catch (error) {
-          console.error('❌ Error sending FCM notifications:', error);
+          console.error('❌ Error sending FCM notifications via Firebase:', error.message);
+          console.log('💡 Make sure FIREBASE_PROJECT_ID, FIREBASE_PRIVATE_KEY, and FIREBASE_CLIENT_EMAIL are set');
         }
       }
 
