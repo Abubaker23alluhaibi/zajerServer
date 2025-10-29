@@ -7,26 +7,56 @@ let firebaseInitialized = false;
 try {
   if (!admin.apps.length) {
     // استخدام Environment Variables بدلاً من ملف JSON
+    let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    
+    // معالجة الـ private key - استبدال \\n بـ \n حقيقي
+    if (privateKey) {
+      // إزالة أي مسافات في البداية والنهاية
+      privateKey = privateKey.trim();
+      
+      // استبدال \\n بـ \n (للمتغيرات البيئة في Railway)
+      privateKey = privateKey.replace(/\\n/g, '\n');
+      
+      // تأكد من أن الـ key يبدأ وينتهي بشكل صحيح
+      if (!privateKey.startsWith('-----BEGIN PRIVATE KEY-----')) {
+        privateKey = '-----BEGIN PRIVATE KEY-----\n' + privateKey;
+      }
+      if (!privateKey.endsWith('-----END PRIVATE KEY-----')) {
+        privateKey = privateKey + '\n-----END PRIVATE KEY-----';
+      }
+    }
+    
     const firebaseConfig = {
       projectId: process.env.FIREBASE_PROJECT_ID,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      privateKey: privateKey,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
     };
 
     if (firebaseConfig.projectId && firebaseConfig.privateKey && firebaseConfig.clientEmail) {
+      // التحقق من أن الـ private key صحيح قبل المحاولة
+      if (!firebaseConfig.privateKey.includes('BEGIN PRIVATE KEY')) {
+        throw new Error('Invalid private key format - missing BEGIN PRIVATE KEY');
+      }
+      
       admin.initializeApp({
         credential: admin.credential.cert(firebaseConfig)
       });
       firebaseInitialized = true;
       console.log('✅ Firebase Admin initialized successfully');
+      console.log('📱 Project ID:', firebaseConfig.projectId);
+      console.log('📧 Client Email:', firebaseConfig.clientEmail);
     } else {
       console.log('⚠️ Firebase environment variables not set, Firebase Admin disabled');
+      if (!firebaseConfig.projectId) console.log('  ❌ Missing FIREBASE_PROJECT_ID');
+      if (!firebaseConfig.privateKey) console.log('  ❌ Missing FIREBASE_PRIVATE_KEY');
+      if (!firebaseConfig.clientEmail) console.log('  ❌ Missing FIREBASE_CLIENT_EMAIL');
     }
   } else {
     firebaseInitialized = true;
   }
 } catch (error) {
   console.error('❌ Firebase initialization error:', error.message);
+  console.error('💡 Make sure FIREBASE_PRIVATE_KEY is correctly formatted with \\n for newlines');
   firebaseInitialized = false;
 }
 
