@@ -202,7 +202,8 @@ class FirebaseMessagingService {
       const message = {
         notification: { 
           title: title,
-          body: body
+          body: body,
+          sound: 'default', // إضافة الصوت في المستوى الأساسي أيضاً
         },
         data: stringData,
         android: {
@@ -211,6 +212,8 @@ class FirebaseMessagingService {
             channelId: 'default',
             sound: 'default',
             priority: 'high',
+            defaultSound: true,
+            defaultVibrateTimings: true,
           },
         },
         apns: {
@@ -218,6 +221,11 @@ class FirebaseMessagingService {
             aps: { 
               sound: 'default',
               badge: 1,
+              alert: {
+                title: title,
+                body: body,
+              },
+              'content-available': 1, // للإشعارات في الخلفية
             },
           },
         },
