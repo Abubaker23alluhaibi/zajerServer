@@ -71,6 +71,11 @@ class PushNotificationService {
 
       console.log(`📊 Tokens breakdown: ${validExpoTokens.length} Expo, ${validFCMTokens.length} FCM, ${invalidTokens.length} invalid`);
 
+      // Remove invalid tokens from database
+      if (invalidTokens.length > 0) {
+        await this.removeInvalidTokensFromDatabase(tokens, invalidTokens);
+      }
+
       const results = [];
 
       // إرسال Expo Push Tokens عبر Expo API
@@ -204,6 +209,34 @@ class PushNotificationService {
     } catch (error) {
       console.error('❌ Error in notifyAdminNewOrder:', error);
       return null;
+    }
+  }
+
+  /**
+   * Remove invalid tokens from database
+   */
+  static async removeInvalidTokensFromDatabase(allTokens, invalidTokenObjects) {
+    try {
+      const Admin = require('../models/Admin');
+      
+      // Get the actual invalid token values
+      const invalidTokenValues = invalidTokenObjects
+        .map(item => {
+          const token = allTokens[item.index];
+          return token ? token.trim() : null;
+        })
+        .filter(Boolean);
+      
+      if (invalidTokenValues.length > 0) {
+        // Remove invalid tokens from admin collection
+        const result = await Admin.updateMany(
+          { pushToken: { $in: invalidTokenValues } },
+          { $set: { pushToken: null } }
+        );
+        console.log(`🧹 Removed ${invalidTokenValues.length} invalid token(s) from database (matched: ${result.matchedCount}, updated: ${result.modifiedCount})`);
+      }
+    } catch (error) {
+      console.error('❌ Error removing invalid tokens from database:', error.message);
     }
   }
 
